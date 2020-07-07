@@ -1,0 +1,39 @@
+{
+    "name": "star/structure-assertion",
+    "description": "PHP Tool to assert array structure using the fluent interface",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Yannick Voyer"
+        }
+    ],
+    "minimum-stability": "stable",
+    "autoload": {
+        "psr-4": {
+            "Star\\Component\\StructureAssertion\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Star\\Component\\StructureAssertion\\": "tests"
+        }
+    },
+    "require": {
+        "php": "^7.1"
+    },
+    "require-dev": {
+        "ext-xdebug": "*",
+        "infection/infection": ">=0.10",
+        "phpstan/extension-installer": "^1.0",
+        "phpstan/phpstan": "^0.12.32",
+        "phpstan/phpstan-phpunit": "^0.12.11",
+        "phpunit/phpunit": ">=7.0",
+        "psr/http-message": ">=1.0",
+        "squizlabs/php_codesniffer": ">=3.5"
+    },
+    "config": {
+        "bin-dir": "bin",
+        "sort-packages": true
+    }
+}
