@@ -6,13 +6,13 @@ use PHPUnit\Framework\TestCase;
 
 final class BufferedOutputTest extends TestCase
 {
-    public function test_something(): void
+    public function test_dumping(): void
     {
         $output = new BufferedDump();
-        $this->assertNull($output->getData());
+        self::assertNull($output->getData());
 
         $output->dump('data');
 
-        $this->assertSame('data', $output->getData());
+        self::assertSame('data', $output->getData());
     }
 }

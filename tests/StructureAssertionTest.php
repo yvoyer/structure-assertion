@@ -2,23 +2,23 @@
 
 namespace Star\Component\StructureAssertion;
 
+use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\ExpectationFailedException;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Star\Component\StructureAssertion\Output\BufferedDump;
+use function str_repeat;
+use function strlen;
 
 final class StructureAssertionTest extends TestCase
 {
-    /**
-     * @var StructureAssertion
-     */
-    private $assertion;
+    private StructureAssertion $assertion;
 
     /**
-     * @var array[]
+     * @var array<string|int, mixed>
      */
-    private $fixture = [
+    private array $fixture = [
         'data' => [
             'string' => 'level 0',
             'object' => [
@@ -103,7 +103,7 @@ final class StructureAssertionTest extends TestCase
     {
         $this->assertion->dump(1, $content = new BufferedDump());
 
-        $this->assertSame(
+        self::assertSame(
             [
                 'data' => [
                     '...',
@@ -117,7 +117,7 @@ final class StructureAssertionTest extends TestCase
     {
         $this->assertion->dump(2, $content = new BufferedDump());
 
-        $this->assertSame(
+        self::assertSame(
             [
                 'data' => [
                     'string' => 'level 0',
@@ -125,7 +125,7 @@ final class StructureAssertionTest extends TestCase
                         '...',
                     ],
                     'array' => [
-                        '...'
+                        '...',
                     ],
                 ],
             ],
@@ -137,7 +137,7 @@ final class StructureAssertionTest extends TestCase
     {
         $this->assertion->dumpPath($content = new BufferedDump());
 
-        $this->assertSame('root', $content->getData());
+        self::assertSame('root', $content->getData());
     }
 
     public function test_it_should_dump_the_path_of_current_node(): void
@@ -147,32 +147,33 @@ final class StructureAssertionTest extends TestCase
             ->enterObjectNode('object')
             ->enterDataNode()
             ->enterObjectNode('array')
-            ->enterArrayElement(0)
+            ->enterArrayElement()
             ->enterObjectNode('object')
             ->enterDataNode()
             ->assertIsSame('string', 'level 3')
             ->dumpPath($content = new BufferedDump())
         ;
 
-        $this->assertSame('root.data.object.data.array.0.object.data', $content->getData());
+        self::assertSame('root.data.object.data.array.0.object.data', $content->getData());
     }
 
     public function test_it_should_dump_all_data(): void
     {
         $this->assertion->dump(-1, $content = new BufferedDump());
-        $this->assertSame($this->fixture, $content->getData());
+        self::assertSame($this->fixture, $content->getData());
     }
 
     public function test_it_should_assert_array_node(): void
     {
-        $this->expectException(ExpectationFailedException::class);
-        $this->expectExceptionMessage('Failed asserting that \'\' is of type "array".');
-        StructureAssertion::fromArray(
+        $assertion = StructureAssertion::fromArray(
             [
                 'array' => '',
             ]
-        )
-            ->enterArrayNode('array');
+        );
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessage('Failed asserting that "" is of type "array".');
+        $assertion->enterArrayNode('array');
     }
 
     public function test_it_should_enter_next_array_element(): void
@@ -212,7 +213,8 @@ final class StructureAssertionTest extends TestCase
     public function test_it_should_assert_contains(): void
     {
         $this->expectException(ExpectationFailedException::class);
-        $this->expectExceptionMessage('Failed asserting that \'\' contains "value".');
+        $this->expectExceptionMessage("Failed asserting that ''");
+        $this->expectExceptionMessage('contains "value"');
         StructureAssertion::fromArray(['data' => ''])
             ->assertContains('data', 'value')
         ;
@@ -286,17 +288,17 @@ final class StructureAssertionTest extends TestCase
     public function test_it_should_dump_current_keys(): void
     {
         $this->assertion->dumpKeys($output = new BufferedDump());
-        $this->assertSame(['data'], $output->getData());
+        self::assertSame(['data'], $output->getData());
     }
 
     public function test_it_should_build_from_response(): void
     {
-        $stream = $this->createMock(StreamInterface::class);
+        $stream = $this->createStub(StreamInterface::class);
         $stream
             ->method('getContents')
             ->willReturn('{"id":22}')
         ;
-        $response = $this->createMock(ResponseInterface::class);
+        $response = $this->createStub(ResponseInterface::class);
         $response
             ->method('getBody')
             ->willReturn($stream)
@@ -317,7 +319,7 @@ final class StructureAssertionTest extends TestCase
     public function test_it_should_throw_exception_when_object_node_is_not_array(): void
     {
         $this->expectException(ExpectationFailedException::class);
-        $this->expectExceptionMessage('Failed asserting that \'\' is of type "array".');
+        $this->expectExceptionMessage('Failed asserting that "" is of type "array".');
         StructureAssertion::fromArray(['data' => ''])->enterObjectNode('data');
     }
 
@@ -331,7 +333,7 @@ final class StructureAssertionTest extends TestCase
     public function test_it_should_throw_exception_when_array_node_is_not_array(): void
     {
         $this->expectException(ExpectationFailedException::class);
-        $this->expectExceptionMessage('Failed asserting that \'\' is of type "array".');
+        $this->expectExceptionMessage('Failed asserting that "" is of type "array".');
         StructureAssertion::fromArray(['data' => ''])->enterArrayNode('data');
     }
 
@@ -345,7 +347,7 @@ final class StructureAssertionTest extends TestCase
     public function test_it_should_throw_exception_when_array_element_is_not_array(): void
     {
         $this->expectException(ExpectationFailedException::class);
-        $this->expectExceptionMessage('Failed asserting that \'data\' is of type "array".');
+        $this->expectExceptionMessage('Failed asserting that "data" is of type "array".');
         StructureAssertion::fromArray(['data'])->enterArrayElement();
     }
 
@@ -403,16 +405,61 @@ final class StructureAssertionTest extends TestCase
         ExtendDataAssertion::fromArray(['data' => ['id' => false]])
             ->assertMyCustomStuff('id');
     }
+
+    public function test_it_should_throw_exception_when_response_is_not_json(): void
+    {
+        $stream = $this->createStub(StreamInterface::class);
+        $stream
+            ->method('getContents')
+            ->willReturn('invalid')
+        ;
+        $response = $this->createStub(ResponseInterface::class);
+        $response
+            ->method('getBody')
+            ->willReturn($stream)
+        ;
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessage('Failed asserting that a string is valid JSON');
+        StructureAssertion::fromJsonResponse($response);
+    }
+
+    public function test_it_should_throw_exception_when_response_is_not_json_object(): void
+    {
+        $stream = $this->createStub(StreamInterface::class);
+        $stream
+            ->method('getContents')
+            ->willReturn('2')
+        ;
+        $response = $this->createStub(ResponseInterface::class);
+        $response
+            ->method('getBody')
+            ->willReturn($stream)
+        ;
+
+        $this->expectException(ExpectationFailedException::class);
+        $this->expectExceptionMessage('Failed asserting that 2 is of type array.');
+        StructureAssertion::fromJsonResponse($response)->enterObjectNode('invalid');
+    }
+
+    public function test_it_should_cast_scalar_to_string(): void
+    {
+        self::assertSame('12', StructureAssertion::stringify(12));
+        self::assertSame('12.34', StructureAssertion::stringify(12.34));
+        self::assertSame('<TRUE>', StructureAssertion::stringify(true));
+        self::assertSame(100, strlen(StructureAssertion::stringify(str_repeat('abcde', 50))));
+        self::assertSame('<ARRAY>', StructureAssertion::stringify([]));
+        self::assertSame('stdClass', StructureAssertion::stringify((object) []));
+        self::assertSame('<NULL>', StructureAssertion::stringify(null));
+    }
 }
 
 final class ExtendDataAssertion extends StructureAssertion
 {
     public function assertMyCustomStuff(string $index): ExtendDataAssertion
     {
-        /**
-         * @var static $assert
-         */
         $assert = $this->enterDataNode();
+        Assert::assertInstanceOf(ExtendDataAssertion::class, $assert);
 
         return $assert->assertIsFalse($index);
     }

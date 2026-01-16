@@ -4,23 +4,14 @@ namespace Star\Component\StructureAssertion\Output;
 
 final class BufferedDump implements DumpStrategy
 {
-    /**
-     * @var array|string[]
-     */
-    private $data;
+    private mixed $data = null;
 
-    /**
-     * @param mixed $data
-     */
-    public function dump($data): void
+    public function dump(mixed $data): void
     {
         $this->data = $data;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getData()
+    public function getData(): mixed
     {
         return $this->data;
     }
