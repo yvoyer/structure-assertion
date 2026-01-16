@@ -2,12 +2,26 @@
 
 namespace Star\Component\StructureAssertion;
 
+use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Constraint;
 use Psr\Http\Message\ResponseInterface;
 use Star\Component\StructureAssertion\Output\EchoOutput;
 use Star\Component\StructureAssertion\Output\DumpStrategy;
 use Star\Component\StructureAssertion\Output\VarDumpOutput;
+use function array_keys;
+use function get_class;
+use function get_resource_type;
+use function gettype;
+use function is_array;
+use function is_bool;
+use function is_object;
+use function is_resource;
+use function is_scalar;
+use function json_decode;
+use function mb_strlen;
+use function mb_substr;
+use function sprintf;
 
 class StructureAssertion
 {
@@ -16,36 +30,30 @@ class StructureAssertion
     /**
      * int when navigating array node
      * string when object node
-     *
-     * @var string|int
      */
-    private $nodeIndex;
+    private string|int $nodeIndex;
 
     /**
-     * @var mixed[]
+     * @var array<string|int, mixed>
      */
-    private $data;
+    private readonly array $data;
+
+    private ?StructureAssertion $previous;
 
     /**
-     * @var static|null
+     * @param array<string|int, mixed> $data
      */
-    private $previous;
-
-    /**
-     * @param int|string $nodeIndex
-     * @param mixed[] $data
-     * @param static|null $previous
-     */
-    final private function __construct($nodeIndex, array $data, StructureAssertion $previous = null)
-    {
+    final private function __construct(
+        int|string $nodeIndex,
+        array $data,
+        ?StructureAssertion $previous = null
+    ) {
         $this->nodeIndex = $nodeIndex;
         $this->data = $data;
         $this->previous = $previous;
     }
 
     /**
-     * @param string $node
-     *
      * @return static
      */
     final public function enterObjectNode(string $node): self
@@ -54,13 +62,18 @@ class StructureAssertion
     }
 
     /**
-     * @param int $node
      * @return static
      */
     final public function enterArrayElement(int $node = 0): self
     {
         Assert::assertArrayHasKey($node, $this->data);
-        Assert::assertIsArray($this->data[$node]);
+        Assert::assertIsArray(
+            $this->data[$node],
+            sprintf(
+                'Failed asserting that "%s" is of type "array".',
+                self::stringify($this->data[$node]),
+            )
+        );
 
         return new static($node, $this->data[$node], $this);
     }
@@ -74,25 +87,26 @@ class StructureAssertion
     }
 
     /**
-     * @param string $node
-     *
      * @return static
      */
     final public function enterArrayNode(string $node): self
     {
         Assert::assertArrayHasKey($node, $this->data);
-        Assert::assertIsArray($this->data[$node]);
+        Assert::assertIsArray(
+            $this->data[$node],
+            sprintf(
+                'Failed asserting that "%s" is of type "array".',
+                self::stringify($this->data[$node]),
+            )
+        );
 
         return new static($node, $this->data[$node], $this);
     }
 
-    /**
-     * @return static
-     */
-    final public function exitNode(): self
+    final public function exitNode(): static
     {
-        if (! $this->previous instanceof StructureAssertion) {
-            throw new \InvalidArgumentException(
+        if (! $this->previous instanceof static) {
+            throw new InvalidArgumentException(
                 'No previous node exists, exiting is not possible. use debug to show data.'
             );
         }
@@ -100,147 +114,82 @@ class StructureAssertion
         return $this->previous;
     }
 
-    /**
-     * @return static
-     */
-    final public function nextArrayElement(): self
+    final public function nextArrayElement(): static
     {
         Assert::assertIsInt(
             $this->nodeIndex,
             'Cannot move to next sibling when current node is object.'
         );
-        return $this->exitNode()->enterArrayElement((int) $this->nodeIndex + 1);
+        return $this->exitNode()->enterArrayElement($this->nodeIndex + 1);
     }
 
-    /**
-     * @param string $property
-     * @param mixed $value
-     *
-     * @return static
-     */
-    final public function assertIsSame(string $property, $value): self
+    final public function assertIsSame(string $property, mixed $value): static
     {
         return $this->propertyIs($property, new Constraint\IsIdentical($value));
     }
 
-    /**
-     * @param string $property
-     * @param mixed $value
-     *
-     * @return static
-     */
-    final public function assertIsEqual(string $property, $value): self
+    final public function assertIsEqual(string $property, mixed $value): static
     {
         return $this->propertyIs($property, new Constraint\IsEqual($value));
     }
 
-    /**
-     * @param string $property
-     * @param callable $value
-     *
-     * @return static
-     */
-    final public function assertCallback(string $property, callable $value): self
+    final public function assertCallback(string $property, callable $value): static
     {
         return $this->propertyIs($property, new Constraint\Callback($value));
     }
 
-    /**
-     * @param string $property
-     * @param string $value
-     *
-     * @return static
-     */
-    final public function assertContains(string $property, string $value): self
+    final public function assertContains(string $property, string $value): static
     {
         return $this->propertyIs($property, new Constraint\StringContains($value));
     }
 
     /**
-     * @param string $property
-     * @param mixed[] $value
-     *
-     * @return static
+     * @param array<string|int, mixed> $value
      */
-    final public function assertEqualToArray(string $property, array $value): self
+    final public function assertEqualToArray(string $property, array $value): static
     {
         return $this->propertyIs($property, new Constraint\IsEqual($value));
     }
 
-    /**
-     * @param int $value
-     *
-     * @return static
-     */
-    final public function assertCount(int $value): self
+    final public function assertCount(int $value): static
     {
         Assert::assertCount(
             $value,
             $this->data,
-            \sprintf('Element count in Node "%s" is not as expected.', $this->nodeIndex)
+            sprintf('Element count in Node "%s" is not as expected.', $this->nodeIndex)
         );
 
         return $this;
     }
 
-    /**
-     * @param string $property
-     *
-     * @return static
-     */
-    final public function assertIsNull(string $property): self
+    final public function assertIsNull(string $property): static
     {
         return $this->propertyIs($property, new Constraint\IsNull());
     }
 
-    /**
-     * @param string $property
-     *
-     * @return static
-     */
-    final public function assertIsNotSet(string $property): self
+    final public function assertIsNotSet(string $property): static
     {
         Assert::assertArrayNotHasKey($property, $this->data);
 
         return $this;
     }
 
-    /**
-     * @param string $property
-     *
-     * @return static
-     */
-    final public function assertIsNotNull(string $property): self
+    final public function assertIsNotNull(string $property): static
     {
         return $this->propertyIs($property, new Constraint\LogicalNot(new Constraint\IsNull()));
     }
 
-    /**
-     * @param string $property
-     *
-     * @return static
-     */
-    final public function assertIsTrue(string $property): self
+    final public function assertIsTrue(string $property): static
     {
         return $this->propertyIs($property, new Constraint\IsTrue());
     }
 
-    /**
-     * @param string $property
-     *
-     * @return static
-     */
-    final public function assertIsFalse(string $property): self
+    final public function assertIsFalse(string $property): static
     {
         return $this->propertyIs($property, new Constraint\IsFalse());
     }
 
-    /**
-     * @param string $property
-     * @param Constraint\Constraint $constraint
-     * @return static
-     */
-    private function propertyIs(string $property, Constraint\Constraint $constraint): self
+    private function propertyIs(string $property, Constraint\Constraint $constraint): static
     {
         Assert::assertArrayHasKey($property, $this->data);
         $constraint->evaluate($this->data[$property]);
@@ -251,12 +200,11 @@ class StructureAssertion
     /**
      * Dump all the data up to $max depth using the $strategy
      * @param int $max_depth The depth to output, default: 2 level. use -1 for infinite.
-     * @param DumpStrategy $strategy
-     *
-     * @return static
      */
-    final public function dump(int $max_depth = 2, DumpStrategy $strategy = null): self
-    {
+    final public function dump(
+        int $max_depth = 2,
+        ?DumpStrategy $strategy = null,
+    ): static {
         if (! $strategy) {
             $strategy = new VarDumpOutput();
         }
@@ -266,8 +214,10 @@ class StructureAssertion
         return $this;
     }
 
-    final public function dumpPath(DumpStrategy $strategy = null, string $path = ''): self
-    {
+    final public function dumpPath(
+        ?DumpStrategy $strategy = null,
+        string $path = '',
+    ): static {
         if (!$strategy) {
             $strategy = new EchoOutput();
         }
@@ -282,47 +232,38 @@ class StructureAssertion
         return $this;
     }
 
-    /**
-     * @param DumpStrategy|null $strategy
-     * @return static
-     */
-    final public function dumpKeys(DumpStrategy $strategy = null): self
-    {
+    final public function dumpKeys(
+        ?DumpStrategy $strategy = null,
+    ): static {
         if (!$strategy) {
             $strategy = new VarDumpOutput();
         }
 
-        $strategy->dump(\array_keys($this->data));
+        $strategy->dump(array_keys($this->data));
 
         return $this;
     }
 
-    /**
-     * @param ResponseInterface $response
-     *
-     * @return static
-     */
-    public static function fromJsonResponse(ResponseInterface $response): self
-    {
-        return static::fromArray(\json_decode($response->getBody()->getContents(), true));
+    public static function fromJsonResponse(
+        ResponseInterface $response,
+    ): static {
+        $json = $response->getBody()->getContents();
+        Assert::assertJson($json);
+        $data = json_decode($json, true);
+        Assert::assertIsArray($data);
+
+        return static::fromArray($data);
     }
 
     /**
-     * @param mixed[] $data
-     *
-     * @return static
+     * @param array<string|int, mixed> $data
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $data): static
     {
         return new static('root', $data);
     }
 
-    /**
-     * @param mixed $data
-     * @param int $max_depth
-     * @return mixed[]
-     */
-    final private function export($data, int $max_depth)
+    private function export(mixed $data, int $max_depth): mixed
     {
         if (! is_array($data) || $max_depth === self::ALL_DEPTH) {
             return $data;
@@ -338,5 +279,32 @@ class StructureAssertion
         }
 
         return $return;
+    }
+
+    public static function stringify(mixed $value): string
+    {
+        $result = gettype($value);
+
+        if (is_bool($value)) {
+            $result = $value ? '<TRUE>' : '<FALSE>';
+        } elseif (is_scalar($value)) {
+            $val = (string) $value;
+
+            if (mb_strlen($val) > 100) {
+                $val = mb_substr($val, 0, 97).'...';
+            }
+
+            $result = $val;
+        } elseif (is_array($value)) {
+            $result = '<ARRAY>';
+        } elseif (is_object($value)) {
+            $result = get_class($value);
+        } elseif (is_resource($value)) {
+            $result = get_resource_type($value);
+        } elseif (null === $value) {
+            $result = '<NULL>';
+        }
+
+        return $result;
     }
 }

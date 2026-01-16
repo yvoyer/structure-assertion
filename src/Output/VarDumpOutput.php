@@ -2,10 +2,12 @@
 
 namespace Star\Component\StructureAssertion\Output;
 
-final class VarDumpOutput implements DumpStrategy
+use function var_dump;
+
+final readonly class VarDumpOutput implements DumpStrategy
 {
-    public function dump($data): void
+    public function dump(mixed $data): void
     {
-        \var_dump($data);
+        var_dump($data);
     }
 }

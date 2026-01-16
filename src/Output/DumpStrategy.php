@@ -4,8 +4,5 @@ namespace Star\Component\StructureAssertion\Output;
 
 interface DumpStrategy
 {
-    /**
-     * @param mixed $data
-     */
-    public function dump($data): void;
+    public function dump(mixed $data): void;
 }

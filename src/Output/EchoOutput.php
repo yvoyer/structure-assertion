@@ -2,13 +2,12 @@
 
 namespace Star\Component\StructureAssertion\Output;
 
-final class EchoOutput implements DumpStrategy
+use Star\Component\StructureAssertion\StructureAssertion;
+
+final readonly class EchoOutput implements DumpStrategy
 {
-    /**
-     * @param mixed $data
-     */
-    public function dump($data): void
+    public function dump(mixed $data): void
     {
-        echo $data;
+        echo StructureAssertion::stringify($data);
     }
 }
