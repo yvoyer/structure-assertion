@@ -25,7 +25,7 @@
     "require-dev": {
         "ext-xdebug": "*",
         "ext-json": "*",
-        "infection/infection": ">=0.30",
+        "infection/infection": ">=0.26.7",
         "phpstan/extension-installer": ">=1.0",
         "phpstan/phpstan": "^2.0",
         "phpstan/phpstan-phpunit": ">=2.0",
